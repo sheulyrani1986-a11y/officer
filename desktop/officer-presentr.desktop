@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=OfficeR PresentR
+Comment=Modern Presentation Software
+Exec=officer-presentr %F
+Icon=officer-presentr
+Terminal=false
+Type=Application
+Categories=Office;Presentation;
+MimeType=application/vnd.openxmlformats-officedocument.presentationml.presentation;application/vnd.oasis.opendocument.presentation;
+StartupNotify=true

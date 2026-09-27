@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=OfficeR
+Comment=Modern Linux Native Office Suite
+Exec=officer %U
+Icon=officer
+Terminal=false
+Type=Application
+Categories=Office;
+MimeType=application/vnd.openxmlformats-officedocument.wordprocessingml.document;application/vnd.oasis.opendocument.text;application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;application/vnd.oasis.opendocument.spreadsheet;application/vnd.openxmlformats-officedocument.presentationml.presentation;application/vnd.oasis.opendocument.presentation;
+StartupNotify=true

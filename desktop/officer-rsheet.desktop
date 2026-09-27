@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=OfficeR RSheet
+Comment=Modern Spreadsheet Application
+Exec=officer-rsheet %F
+Icon=officer-rsheet
+Terminal=false
+Type=Application
+Categories=Office;Spreadsheet;
+MimeType=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;application/vnd.oasis.opendocument.spreadsheet;text/csv;
+StartupNotify=true

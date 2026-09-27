@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=OfficeR WriteR
+Comment=Modern Word Processor
+Exec=officer-writer %F
+Icon=officer-writer
+Terminal=false
+Type=Application
+Categories=Office;WordProcessor;
+MimeType=application/vnd.openxmlformats-officedocument.wordprocessingml.document;application/vnd.oasis.opendocument.text;application/msword;text/plain;
+StartupNotify=true
