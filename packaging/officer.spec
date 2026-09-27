@@ -16,6 +16,10 @@ ROOT = os.path.abspath(os.path.join(SPECPATH, ".."))
 datas = [(os.path.join(ROOT, "officer", "assets"), "assets")]
 hiddenimports = ["officer.app", "officer.writer.app", "officer.rsheet.app",
                  "officer.presentr.app"]
+# WriteR prints through CUPS, and Qt answers that with a plugin it loads by
+# name when the first dialog opens. Neither the byte-code scan nor the plain
+# import of QtPrintSupport carries the plugin, so both are asked for outright.
+hiddenimports += ["PySide6.QtPrintSupport"]
 # These three read their own templates and formats out of their packages, which
 # a byte-code scan cannot see.
 for package in ("docx", "pptx", "odf", "openpyxl"):

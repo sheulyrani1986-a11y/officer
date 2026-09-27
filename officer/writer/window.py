@@ -9,11 +9,15 @@ from PySide6.QtWidgets import (
     QListWidget, QListWidgetItem
 )
 from PySide6.QtGui import (
-    QFont, QFontInfo, QKeySequence, QShortcut, QTextCursor, QActionGroup, QColor
+    QFont, QFontInfo, QKeySequence, QPageLayout, QShortcut, QTextCursor,
+    QActionGroup, QColor
 )
 from officer.core.ui.base_window import OfficeBaseWindow
 from officer.core.ui.icons import IconProvider, colour_swatch_icon
 from officer.core.io.pdf_exporter import PdfExporter
+from officer.core.io.printing import (
+    choose_printer, page_range, print_on, sheet_layout
+)
 from officer.core.ui.fonts import FontListComboBox, fill_font_list
 from officer.writer.document_view import (
     DocumentWorkspace, MARGIN_PRESETS, PAPER_GROUPS, MM_TO_PX, PX_PER_CM,
@@ -37,6 +41,10 @@ class WriteRWindow(OfficeBaseWindow):
     """Modern Word Processor Window for OfficeR."""
 
     has_templates = True
+
+    #: The letter is the document that goes onto paper, so WriteR alone answers
+    #: the backstage Print entry and its shortcut.
+    can_print = True
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(app_name="writer", app_title="WriteR", parent=parent)
@@ -1204,21 +1212,57 @@ class WriteRWindow(OfficeBaseWindow):
         else:
             QMessageBox.critical(self, "Error", f"Failed to save document to {filepath}")
 
+    def _sheet_layout(self) -> QPageLayout:
+        """The paper Layout ▸ Size chose, wearing the sheet's own margins."""
+        wide, tall = self.page.paper_size_mm
+        return sheet_layout(wide, tall, self.page.margin_pixels / MM_TO_PX,
+                            self.page.landscape)
+
+    def _sheet_dressing(self) -> dict:
+        """What the sheet wears that does not live in the paragraphs.
+
+        Pictures lying on the paper, its border, its colour, its mark and the
+        two bands: the same five things a printed sheet and an exported one
+        both need, measured from the same place.
+        """
+        return {"objects": self.page.float_draw_list(),
+                "border": self.page.page_border(),
+                "page_colour": self.page.page_colour(),
+                "watermark": self.page.watermark(),
+                "header_footer": self.page.header_footer()}
+
     def export_pdf(self, filepath: str) -> bool:
         """Print the document on the sheet Layout ▸ Size chose, at its real size."""
         with self.page.at_actual_size() as document:
             return PdfExporter.export_text_document(
-                document,
-                filepath,
+                document, filepath,
                 page_size_mm=self.page.paper_size_mm,
                 landscape=self.page.landscape,
                 margins_mm=self.page.margin_pixels / MM_TO_PX,
-                objects=self.page.float_draw_list(),
-                border=self.page.page_border(),
-                page_colour=self.page.page_colour(),
-                watermark=self.page.watermark(),
-                header_footer=self.page.header_footer(),
-            )
+                **self._sheet_dressing())
+
+    def on_print(self) -> None:
+        """Send the document to whatever printer the machine offers.
+
+        The dialog is allowed to overrule the paper, and should: a sheet set to
+        A4 sent to a machine holding only Letter prints on Letter, the writing
+        re-flowed to the page that is really there. The margins are the
+        document's own, because the sheet's border and bands are measured
+        against them.
+        """
+        printer = choose_printer(self, self._sheet_layout(), "Print Document")
+        if printer is None:
+            return
+        with self.page.at_actual_size() as document:
+            where = print_on(
+                printer,
+                lambda painter, device: PdfExporter.paint_text_document(
+                    device, painter, document, only=page_range(device),
+                    **self._sheet_dressing()))
+        if where:
+            self.status_bar.showMessage(f"Printed on {where}", 4000)
+        else:
+            QMessageBox.critical(self, "Error", "The printer refused the job.")
 
     def on_export_pdf(self) -> None:
         filepath, _ = QFileDialog.getSaveFileName(

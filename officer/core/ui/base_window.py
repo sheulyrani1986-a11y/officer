@@ -26,6 +26,11 @@ class OfficeBaseWindow(QMainWindow):
     #: below, and gets the backstage entry and its warning for nothing.
     has_templates = False
 
+    #: Putting paper in a printer is a document's own trick: only the app that
+    #: answers ``on_print`` offers the backstage entry and its shortcut, so no
+    #: other application carries a control that would do nothing.
+    can_print = False
+
     def __init__(
         self,
         app_name: str,
@@ -97,8 +102,8 @@ class OfficeBaseWindow(QMainWindow):
         QShortcut(QKeySequence.StandardKey.Save, self, self.on_save)
         QShortcut(QKeySequence.StandardKey.SaveAs, self, self.on_save_as)
         QShortcut(QKeySequence("F12"), self, self.on_save_as)
-        QShortcut(QKeySequence.StandardKey.Print, self, self.on_export_pdf)
-        QShortcut(QKeySequence("Ctrl+P"), self, self.on_export_pdf)
+        if self.can_print:
+            QShortcut(QKeySequence.StandardKey.Print, self, self.on_print)
         QShortcut(QKeySequence.StandardKey.Undo, self, self.command_stack.undo)
         QShortcut(QKeySequence.StandardKey.Redo, self, self.command_stack.redo)
         QShortcut(QKeySequence("Ctrl+F1"), self, self.ribbon.toggle_collapse)
@@ -123,8 +128,11 @@ class OfficeBaseWindow(QMainWindow):
         self._add_menu_action(
             menu, "Save As...", "save-as", self.on_save_as, QKeySequence.StandardKey.SaveAs
         )
+        if self.can_print:
+            self._add_menu_action(menu, "Print...", "print", self.on_print,
+                                  QKeySequence.StandardKey.Print)
         self._add_menu_action(
-            menu, "Export to PDF...", "pdf", self.on_export_pdf, QKeySequence("Ctrl+P")
+            menu, "Export to PDF...", "pdf", self.on_export_pdf, None
         )
         menu.addSeparator()
         self._add_menu_action(menu, "Close", "close", self.close, QKeySequence("Ctrl+W"))

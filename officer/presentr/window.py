@@ -2,7 +2,9 @@
 
 import os
 from typing import Optional
-from PySide6.QtCore import Qt, QMarginsF, QSize, QSizeF, QTimer
+from PySide6.QtCore import (
+    Qt, QMarginsF, QRectF, QSize, QSizeF, QTimer
+)
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem, QLabel, QTextEdit,
     QFileDialog, QMessageBox, QInputDialog, QColorDialog, QSplitter, QDoubleSpinBox,
@@ -1328,41 +1330,55 @@ class PresentRWindow(OfficeBaseWindow):
         else:
             QMessageBox.critical(self, "Error", f"Failed to save presentation to {filepath}")
 
-    def export_pdf(self, filepath: str) -> bool:
-        """Write every slide to *filepath*, one sheet per slide, at the slide's size.
+    def _sheet_layout(self) -> QPageLayout:
+        """The deck as its own paper: the slide's measurements, no margins.
 
-        The deck is its own paper: a 16:9 show printed on A4 arrives with bars of
-        blank sheet down the sides, and the scene's pixels are 96 to the inch, so
-        the sheet is cut from the slide's own measurements.
+        A 16:9 show laid on A4 arrives with bars of blank sheet down the sides,
+        so the sheet is cut from the slide itself. The measurements already say
+        which way the slide lies, so the layout is built unrotated; asking for
+        Landscape on top turns a 16:9 sheet back into a portrait page.
         """
-        self.scene.sync_to_slide()
         wide = self.presentation.width * 10 / PX_PER_CM
         tall = self.presentation.height * 10 / PX_PER_CM
-        writer = QPdfWriter(filepath)
-        # The slide's measurements already say which way it lies, so the layout
-        # takes them unrotated; asking for Landscape on top turns a 16:9 sheet
-        # back into a portrait page.
-        writer.setPageLayout(QPageLayout(
+        return QPageLayout(
             QPageSize(QSizeF(wide, tall), QPageSize.Unit.Millimeter),
             QPageLayout.Orientation.Portrait,
-            QMarginsF(0, 0, 0, 0), QPageLayout.Unit.Millimeter))
-        writer.setResolution(150)
+            QMarginsF(0, 0, 0, 0),
+            QPageLayout.Unit.Millimeter)
 
-        painter = QPainter(writer)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        area = writer.pageLayout().paintRectPixels(writer.resolution())
-        scale = area.width() / self.presentation.width
-        temp_scene = SlideCanvasScene(self.presentation.width, self.presentation.height)
-
-        for s_idx, slide in enumerate(self.presentation.slides):
-            if s_idx > 0:
-                writer.newPage()
+    def _paint_pages(self, device, painter: QPainter) -> None:
+        """Draw every slide on *device*'s paper, one to a sheet."""
+        area = device.pageLayout().paintRectPixels(device.resolution())
+        # The slide's own measurements and the paper cut from them agree, so
+        # this only ever shifts the sheet by a rounding; the arithmetic is
+        # written into the target rectangle rather than set on the painter
+        # because ``render`` measures its target in the device's coordinates.
+        scale = min(area.width() / self.presentation.width,
+                    area.height() / self.presentation.height)
+        left = area.x() + (area.width() - self.presentation.width * scale) / 2
+        top = area.y() + (area.height() - self.presentation.height * scale) / 2
+        drawn = QRectF(0, 0, self.presentation.width, self.presentation.height)
+        onto = QRectF(left, top, self.presentation.width * scale,
+                      self.presentation.height * scale)
+        scene = SlideCanvasScene(self.presentation.width, self.presentation.height)
+        for index, slide in enumerate(self.presentation.slides):
+            if index:
+                device.newPage()
             painter.resetTransform()
-            painter.translate(area.topLeft())
-            painter.scale(scale, scale)
-            temp_scene.load_slide(slide)
-            temp_scene.render(painter)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            scene.load_slide(slide)
+            scene.render(painter, onto, drawn)
 
+    def export_pdf(self, filepath: str) -> bool:
+        """Write every slide to *filepath*, one sheet per slide, at the slide's size."""
+        self.scene.sync_to_slide()
+        writer = QPdfWriter(filepath)
+        writer.setPageLayout(self._sheet_layout())
+        writer.setResolution(150)
+        painter = QPainter(writer)
+        if not painter.isActive():
+            return False
+        self._paint_pages(writer, painter)
         painter.end()
         return os.path.exists(filepath) and os.path.getsize(filepath) > 0
 

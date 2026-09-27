@@ -5,9 +5,10 @@ import os
 from dataclasses import fields
 from typing import Dict, List, Optional, Sequence
 
-from PySide6.QtCore import Qt, QMarginsF, QModelIndex, QPointF, QRectF, QSizeF
+from PySide6.QtCore import Qt, QModelIndex, QMarginsF, QPointF, QRectF, QSizeF
 from PySide6.QtGui import (
-    QColor, QKeySequence, QPainter, QPageLayout, QPageSize, QPen, QPdfWriter, QShortcut
+    QColor, QKeySequence, QPainter, QPageLayout, QPageSize, QPen, QPdfWriter,
+    QShortcut
 )
 from PySide6.QtWidgets import (
     QColorDialog, QComboBox, QFileDialog, QHBoxLayout, QInputDialog, QMenu,
@@ -974,6 +975,10 @@ class RSheetWindow(OfficeBaseWindow):
     PAPER_SIZES_MM = {"A3": (297, 420), "A4": (210, 297), "A5": (148, 210),
                       "Letter": (216, 279), "Legal": (216, 356)}
 
+    #: Dots per inch a written-out PDF is drawn at. A printer gets
+    #: printing.PRINT_DPI instead, because it asks for the detail.
+    PDF_DPI = 150
+
     def _apply_page_geometry(self) -> None:
         """Hand the paper and margins to the grid's Page Layout / Break views."""
         width, height = self.PAPER_SIZES_MM.get(self.paper_size, self.PAPER_SIZES_MM["A4"])
@@ -1185,30 +1190,37 @@ class RSheetWindow(OfficeBaseWindow):
         else:
             QMessageBox.critical(self, "Error", f"Failed to save spreadsheet to {filepath}")
 
-    def export_pdf(self, filepath: str) -> bool:
-        """Write the grid to *filepath* on the paper the sheet was set to.
+    def _sheet_layout(self) -> QPageLayout:
+        """The paper this sheet was set to, with its margins.
 
         Naming the sizes one by one left every sheet but A4, Letter and Legal
-        arriving on an A4 page, so the sheet's own millimetres go to the writer.
+        arriving on an A4 page, so the sheet's own millimetres are used.
         """
         width, height = self.PAPER_SIZES_MM.get(self.paper_size,
                                                 self.PAPER_SIZES_MM["A4"])
-        margin = self.page_margin_mm
-        orientation = (QPageLayout.Orientation.Landscape if self.landscape
-                       else QPageLayout.Orientation.Portrait)
-        writer = QPdfWriter(filepath)
-        # The size stays portrait and the orientation does the turning: swapping
-        # the two as well landed a landscape sheet back on a portrait page.
-        writer.setPageLayout(QPageLayout(
+        return QPageLayout(
             QPageSize(QSizeF(width, height), QPageSize.Unit.Millimeter),
-            orientation,
-            QMarginsF(margin, margin, margin, margin), QPageLayout.Unit.Millimeter))
-        writer.setResolution(150)
+            QPageLayout.Orientation.Landscape if self.landscape
+            else QPageLayout.Orientation.Portrait,
+            QMarginsF(self.page_margin_mm, self.page_margin_mm,
+                      self.page_margin_mm, self.page_margin_mm),
+            QPageLayout.Unit.Millimeter)
 
+    def _paint_pages(self, device, painter: QPainter) -> None:
+        """Lay the grid over *device*'s paper, opening a sheet as it runs out."""
+        self.sheet_widget.grid.print_to(
+            painter, device.pageLayout().paintRectPixels(device.resolution()),
+            device.newPage)
+
+    def export_pdf(self, filepath: str) -> bool:
+        """Write the grid to *filepath* on the paper the sheet was set to."""
+        writer = QPdfWriter(filepath)
+        writer.setPageLayout(self._sheet_layout())
+        writer.setResolution(self.PDF_DPI)
         painter = QPainter(writer)
-        self.sheet_widget.grid.print_to(painter,
-                                        writer.pageLayout().paintRectPixels(150),
-                                        writer.newPage)
+        if not painter.isActive():
+            return False
+        self._paint_pages(writer, painter)
         painter.end()
         return os.path.exists(filepath) and os.path.getsize(filepath) > 0
 

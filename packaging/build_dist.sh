@@ -117,7 +117,7 @@ Section: editors
 Priority: optional
 Architecture: ${DEB_ARCH}
 Maintainer: Amlan <sheulyrani1986@gmail.com>
-Depends: libgl1, libegl1, libxkbcommon0, libxkbcommon-x11-0, libdbus-1-3, libfontconfig1, libglib2.0-0t64, libx11-6, libx11-xcb1, libxcb1, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-randr0, libxcb-render-util0, libxcb-shape0, libxcb-shm0, libxcb-sync1, libxcb-xfixes0, libxcb-xinerama0, libxcb-xkb1, libxi6, libxrender1, libsm6, libice6, zlib1g, liblzma5, libzstd1
+Depends: libgl1, libegl1, libxkbcommon0, libxkbcommon-x11-0, libdbus-1-3, libfontconfig1, libglib2.0-0t64, libcups2t64 | libcups2, libx11-6, libx11-xcb1, libxcb1, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-randr0, libxcb-render-util0, libxcb-shape0, libxcb-shm0, libxcb-sync1, libxcb-xfixes0, libxcb-xinerama0, libxcb-xkb1, libxi6, libxrender1, libsm6, libice6, zlib1g, liblzma5, libzstd1
 Description: OfficeR, a Linux-native office suite
  WriteR (word processor), RSheet (spreadsheet) and PresentR (presentations),
  each dressed like its Microsoft 365 counterpart and reading and writing the

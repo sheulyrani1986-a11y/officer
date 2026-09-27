@@ -64,32 +64,63 @@ class PdfExporter:
             QPageLayout.Unit.Millimeter
         )
         writer.setPageLayout(layout)
-        resolution = 300
-        writer.setResolution(resolution)
+        writer.setResolution(300)
+        painter = QPainter(writer)
+        if not painter.isActive():
+            return False
+        PdfExporter.paint_text_document(writer, painter, document, objects,
+                                        border, page_colour, watermark,
+                                        header_footer)
+        painter.end()
+        return os.path.exists(output_filepath) and os.path.getsize(
+            output_filepath) > 0
+
+    @staticmethod
+    def paint_text_document(device, painter: QPainter,
+                            document: QTextDocument,
+                            objects: Optional[Sequence[Tuple[tuple, str]]] = None,
+                            border: Optional[dict] = None,
+                            page_colour: Optional[dict] = None,
+                            watermark: Optional[dict] = None,
+                            header_footer: Optional[dict] = None,
+                            only: Optional[Tuple[int, int]] = None) -> int:
+        """Draw every sheet of *document* on *device*; return how many went out.
+
+        *device* is whatever is taking the paper -- a PDF writer or a printer --
+        and it owns the measurements, which is what lets one drawing serve both.
+        The print dialog may have swapped the sheet for another paper while the
+        person was in it, and the writing re-flows to the page that is really
+        there rather than the one that was asked for.
+
+        *only* is the run of sheets to send, counted from one and inclusive,
+        with ``0`` standing for no end: the rest are laid out but not printed,
+        so a range arrives as those sheets alone rather than as those sheets
+        padded with blanks.
+        """
+        layout = device.pageLayout()
         # A document is laid out in Word's units -- 96 to the inch -- and its
-        # layout is computed once, on screen. The printer runs at 300 to the
-        # inch, so the writing has to be drawn through that ratio: measured
-        # straight onto the printer, an 11 pt sheet comes out at 3.6 pt.
+        # layout is computed once, on screen. The device runs at its own
+        # resolution, so the writing has to be drawn through that ratio:
+        # measured straight onto a 300 dpi printer, an 11 pt sheet comes out at
+        # 3.6 pt.
+        resolution = device.resolution()
         unit_scale = resolution / 96.0
+        area = layout.paintRectPixels(resolution)
+        px_per_cm = resolution / 2.54
+        px_per_point = resolution / 72.0
+        margins = layout.margins(QPageLayout.Unit.Millimeter)
+        margin_px = margins.left() / 10.0 * px_per_cm
+        sheet_cm = area.height() / px_per_cm
 
         # Clone document to avoid modifying original layout during pagination
         doc_clone = document.clone()
         # The page layout owns the margins; the document's own margin would
         # stack on top of them and print the text twice as far from the edge.
         doc_clone.setDocumentMargin(0)
-        area = layout.paintRectPixels(resolution)
         sheet = QRectF(0, 0, area.width() / unit_scale,
                        area.height() / unit_scale)
         doc_clone.setTextWidth(sheet.width())
 
-        painter = QPainter(writer)
-        if not painter.isActive():
-            return False
-        px_per_cm = resolution / 2.54
-        px_per_point = resolution / 72.0
-        margin_cm = margins_mm / 10.0
-        margin_px = margin_cm * px_per_cm
-        sheet_cm = area.height() / px_per_cm
         # The painter starts inside the page's margins, so the whole of the
         # paper -- which is what a sheet of dressing is measured against -- lies
         # a margin outside the painting area on every side.
@@ -110,9 +141,15 @@ class PdfExporter:
             from officer.writer.header_footer import BAND_POINT_SIZE
             band_font = QFont(document.defaultFont())
             band_font.setPixelSize(round(BAND_POINT_SIZE * px_per_point))
+        first, last = only if only else (1, 0)
+        sent = 0
         for page in range(pages):
-            if page:
-                writer.newPage()
+            number = page + 1
+            if number < first or (last and number > last):
+                continue
+            if sent:
+                device.newPage()
+            sent += 1
             PdfExporter._draw_page_colour(painter, page_colour, paper,
                                           picture)
             PdfExporter._draw_watermark(painter, watermark, paper, px_per_point,
@@ -126,15 +163,15 @@ class PdfExporter:
             painter.translate(0, -page * sheet.height())
             doc_clone.drawContents(painter)
             painter.restore()
-            PdfExporter._draw_page_border(painter, border, area, px_per_cm)
+            PdfExporter._draw_page_border(painter, border, area, px_per_cm,
+                                          px_per_point)
             PdfExporter._draw_header_footer(painter, header_footer, paper, page,
                                             pages, margin_px, px_per_cm,
                                             band_font)
             PdfExporter._draw_sheet_objects(painter, objects, page, area,
-                                            px_per_cm, margin_cm, sheet_cm)
-        painter.end()
-        return os.path.exists(output_filepath) and os.path.getsize(
-            output_filepath) > 0
+                                            px_per_cm, margins.left() / 10.0,
+                                            sheet_cm)
+        return sent
 
     @staticmethod
     def _draw_watermark(painter: QPainter, mark: Optional[dict],
@@ -171,7 +208,8 @@ class PdfExporter:
 
     @staticmethod
     def _draw_page_border(painter: QPainter, border: Optional[dict],
-                          area: QRectF, px_per_cm: float) -> None:
+                          area: QRectF, px_per_cm: float,
+                          px_per_point: float) -> None:
         """Draw the sheet's own border on the page being written.
 
         The painter starts inside the margins, so the border stands off the
@@ -190,7 +228,7 @@ class PdfExporter:
                    area.height() + 2 * space),
             border["style"], border.get("colour", DEFAULT_COLOUR),
             border.get("width_pt", DEFAULT_WIDTH_PT),
-            pixels_per_point=300.0 / 72.0)
+            pixels_per_point=px_per_point)
 
     @staticmethod
     def _draw_page_colour(painter: QPainter, fill: Optional[dict],
