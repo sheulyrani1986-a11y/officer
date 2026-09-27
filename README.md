@@ -32,7 +32,10 @@ The suite comprises three major applications sharing a unified **OfficeR Core**:
 * **Dressed Paper**: Page colour as a solid or as a picture with an opacity control, page borders, and text or picture watermarks.
 * **Headers, Footers and Templates**: Running headers and footers with page counts, and fourteen document designs reached from *New from Template*.
 * **File Interoperability**: Direct import/export for `.docx` (Microsoft Word) and `.odt` (OpenDocument Text), plus high-resolution vector PDF export.
-* **Printing**: *File ▸ Print* (or `Ctrl+P`) sends the document through CUPS to any queue the system offers — network, USB, shared or print-to-file. The printer's own paper wins over the document's while the document keeps its margins, a page range prints only the sheets named, and the sheet's border, colour, watermark and header bands go out with the writing.
+* **Printing**: *File ▸ Print* (or `Ctrl+P`) sends the document through CUPS to any queue the
+  system offers — network, USB, shared or print-to-file. The printer's own paper wins over the
+  document's while the document keeps its margins, a page range prints only the sheets named,
+  and the sheet's border, colour, watermark and header bands go out with the writing.
 
 ### 3. RSheet (Spreadsheet)
 * **High-Performance Grid**: Virtualized `QTableView` rendering over 1,000,000 rows with instantaneous 60fps scrolling and minimal memory usage.
@@ -168,3 +171,7 @@ python3 -m pytest tests/
        │ • (Extensible) Ollama AI Sidecar Hook (Rewriting, formulas, slide generation) │
        └───────────────────────────────────────────────────────────────────────────────┘
 ```
+
+## License
+
+OfficeR is released under the GNU General Public License v3.0 only (GPL-3.0). See [LICENSE](LICENSE) for the full text; the complete source is what you are reading.

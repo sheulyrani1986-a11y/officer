@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "officer"
 version = "0.1.0"
 description = "OfficeR - A modern, beginner-friendly, Linux-native office suite"
+license = "GPL-3.0-only"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
